@@ -1,0 +1,10 @@
+# Scanned PDF -> Markdown (Vietnamese text + LaTeX math).
+#
+# marker-pdf pulls in surya-ocr, which pulls in torch. Install the CUDA build of
+# torch FIRST if you want GPU inference on the RTX 3060, otherwise pip may
+# resolve the CPU-only wheel:
+#
+#   pip install torch --index-url https://download.pytorch.org/whl/cu128
+#   pip install -r requirements.txt
+#
+marker-pdf>=1.10,<2

@@ -218,3 +218,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# vietnameseLatexOCR: input scans and generated Markdown are data, not source
+# Source PDFs are never committed, wherever they live.
+*.pdf
+*.PDF
+data_source/*
+!data_source/.gitkeep
+output/
+conversion_results/
