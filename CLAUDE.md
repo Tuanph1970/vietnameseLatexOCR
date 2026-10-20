@@ -31,7 +31,9 @@ tables, and the equation processor that turns formula regions into LaTeX. The
 script adds the batch/recursion layer around it:
 
 1. `find_pdfs()` walks the input tree; `destination_for()` mirrors each relative
-   path into the output root with a `.md` suffix.
+   path into the output root with a `.md` suffix. `--exclude` globs are matched
+   through `fold()`, which strips case, Vietnamese diacritics and `-`/`_`
+   separators so one pattern covers 'VIẾT TAY', 'viet tay' and 'viet-tay'.
 2. Work list and up-to-date skipping are decided **before** the models load,
    since loading costs seconds and a few GB of VRAM.
 3. `create_model_dict()` is called **once** and the model dict is reused; a fresh

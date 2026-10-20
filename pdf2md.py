@@ -23,6 +23,7 @@ import sys
 import time
 import unicodedata
 from dataclasses import dataclass, field
+from fnmatch import fnmatch
 from pathlib import Path
 
 # Marker reads some of these at import time, so they must be set before any
@@ -76,6 +77,24 @@ class Totals:
     images: int = 0
 
 
+def fold(text: str) -> str:
+    """Normalise a name for matching: lowercase, no diacritics, no separators.
+
+    Lets a single ``*viet tay*`` match 'VIẾT TAY', 'viet tay' and 'viet-tay',
+    which all appear in real filenames.
+    """
+    decomposed = unicodedata.normalize("NFD", text.lower())
+    stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
+    stripped = stripped.replace("\u0111", "d")  # đ has no combining form
+    return re.sub(r"[-_\s]+", " ", stripped)
+
+
+def is_excluded(pdf: Path, root: Path, patterns: list[str]) -> bool:
+    """True if the path matches any --exclude glob (accent- and case-insensitive)."""
+    rel = fold(str(pdf.relative_to(root)))
+    return any(fnmatch(rel, fold(pat)) for pat in patterns)
+
+
 def find_pdfs(root: Path) -> list[Path]:
     """Every PDF under `root`, recursively, in stable order.
 
@@ -116,6 +135,10 @@ def postprocess(markdown: str, image_dir_name: str | None, image_names: list[str
         # ![alt](name) and HTML <img src='name'> / src="name" both occur.
         markdown = re.sub(rf"\]\(\s*{escaped}\s*\)", f"]({target})", markdown)
         markdown = re.sub(rf"""src=(['"]){escaped}\1""", f'src="{target}"', markdown)
+
+    # markdownify occasionally leaves a bare block tag behind. Drop those, but
+    # keep <a>/<img>, which marker emits deliberately.
+    markdown = re.sub(r"</?(?:p|br|div|span)\s*/?>", "", markdown)
 
     # Collapse the runs of blank lines marker leaves between blocks.
     markdown = re.sub(r"\n{4,}", "\n\n\n", markdown)
@@ -229,6 +252,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                    help="Reconvert even when an up-to-date .md already exists.")
     p.add_argument("--list", action="store_true",
                    help="List the PDFs that would be converted, then exit.")
+    p.add_argument("--exclude", action="append", default=[], metavar="GLOB",
+                   help="Skip PDFs whose relative path matches this glob. Repeatable, "
+                        "case- and accent-insensitive, so '*viet tay*' also matches "
+                        "'VIẾT TAY'. Example: --exclude '*viet tay*' --exclude '*vt*'.")
     p.add_argument("--limit", type=int, default=0,
                    help="Convert at most N files (0 = no limit). Useful for a trial run.")
     p.add_argument("--page-range", type=str, default=None,
@@ -280,10 +307,20 @@ def main(argv: list[str] | None = None) -> int:
         LOG.error("No PDF files found under %s", input_root)
         return 1
 
+    excluded = [p for p in pdfs if is_excluded(p, input_root, args.exclude)]
+    dropped = set(excluded)
+    pdfs = [p for p in pdfs if p not in dropped]
+    if excluded:
+        LOG.info("Excluded %d file(s) by --exclude.", len(excluded))
+
     if args.list:
         for pdf in pdfs:
             LOG.info("%s", pdf.relative_to(input_root))
         LOG.info("\n%d PDF file(s).", len(pdfs))
+        if excluded:
+            LOG.info("\nExcluded:")
+            for pdf in excluded:
+                LOG.info("  %s", pdf.relative_to(input_root))
         return 0
 
     # Decide the work list before loading the (slow) models.

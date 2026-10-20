@@ -93,6 +93,7 @@ Useful flags:
 
 ```bash
 python pdf2md.py --list                  # just show which PDFs were found
+python pdf2md.py --exclude '*viet tay*'  # skip handwritten scans
 python pdf2md.py --limit 1               # trial run on one file first
 python pdf2md.py --page-range 0-4        # only the first 5 pages of each PDF
 python pdf2md.py --in-place              # write .md beside each .pdf
@@ -102,6 +103,23 @@ python pdf2md.py --no-images             # text only, no figure crops
 python pdf2md.py --image-dpi 300         # sharper figure crops
 python pdf2md.py --device cpu            # no GPU
 ```
+
+### Skipping files
+
+`--exclude` drops PDFs whose path matches a glob. Matching is case-insensitive,
+accent-insensitive and treats `-`/`_` as spaces, so one pattern covers the
+spelling variants that occur in practice:
+
+```bash
+python pdf2md.py --exclude '*viet tay*' --exclude '*vt*'
+```
+
+catches `BẢN VIẾT TAY.pdf`, `viet tay b10.pdf` and `de-so-5-viet-tay.pdf` alike.
+Pair it with `--list` to check what would be dropped before converting — the
+excluded files are printed separately.
+
+Handwriting is the weakest case for these models, so excluding it is usually
+worth it if you do not need those documents.
 
 Re-runs are resumable: a PDF whose `.md` is already newer than the PDF is
 skipped, so an interrupted batch can simply be restarted. Per-file failures are
