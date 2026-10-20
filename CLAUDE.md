@@ -80,6 +80,10 @@ script adds the batch/recursion layer around it:
   `image.save()` time, or the link and the file will disagree.
 - Marker emits `<img src='name'>` with **single** quotes; the link rewrite has to
   match either quote style as well as the `![](name)` markdown form.
+- **Image folder names are user filenames**, so they contain spaces and
+  parentheses. A `)` closes a `](dest)` destination early and silently breaks
+  every image link in that file, so link destinations go through `md_link()`.
+  Real corpus filenames like `BTVN ĐƠN ĐIỆU HÀM SỐ (K CÁCH DÒNG).pdf` hit this.
 
 ## Licensing
 

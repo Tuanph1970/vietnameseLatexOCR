@@ -121,6 +121,19 @@ def is_up_to_date(pdf: Path, md: Path) -> bool:
     return md.exists() and md.stat().st_mtime >= pdf.stat().st_mtime
 
 
+def md_link(path: str) -> str:
+    """Escape a path for a markdown link destination.
+
+    Only the characters that actually break the ``](dest)`` syntax are encoded:
+    a ')' in the folder name would close the destination early, and a space
+    ends it in stricter parsers. Vietnamese letters are left alone so the link
+    stays readable. '%' goes first, or it would corrupt the escapes added after it.
+    """
+    for char, code in (("%", "%25"), ("(", "%28"), (")", "%29"), (" ", "%20")):
+        path = path.replace(char, code)
+    return path
+
+
 def postprocess(markdown: str, image_dir_name: str | None, image_names: list[str]) -> str:
     """Normalise Vietnamese text and repoint image links at the images folder."""
     # Surya can emit decomposed diacritics (e.g. "e" + U+0302); NFC composes
@@ -130,7 +143,7 @@ def postprocess(markdown: str, image_dir_name: str | None, image_names: list[str
     for name in image_names:
         # Marker references each crop by bare filename. Point it at the folder
         # (or just keep the bare name when images sit beside the .md).
-        target = f"{image_dir_name}/{name}" if image_dir_name else name
+        target = md_link(f"{image_dir_name}/{name}" if image_dir_name else name)
         escaped = re.escape(name)
         # ![alt](name) and HTML <img src='name'> / src="name" both occur.
         markdown = re.sub(rf"\]\(\s*{escaped}\s*\)", f"]({target})", markdown)
