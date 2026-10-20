@@ -23,6 +23,17 @@ There is no test suite, linter config, or package manifest beyond
 marker install for Vietnamese glyphs), drop it in `data_source/`, and run the
 script — a PDF with zero text-layer characters is what exercises the OCR path.
 
+## Two scripts
+
+`pdf2md.py` converts; `dedupe.py` prunes the input beforehand and shares its
+`fold()` matching idea (lowercase, strip Vietnamese diacritics, collapse `-`/`_`
+to spaces) so both agree on what "viet tay" matches. They are deliberately
+separate: pruning is a one-off judgement call over a corpus, conversion is a
+repeatable batch.
+
+`dedupe.py` never deletes — `--move-to` relocates, preserving the tree. Keep it
+that way; the input scans are the user's only copy.
+
 ## Architecture
 
 `pdf2md.py` wraps **marker-pdf** (which runs **surya-ocr** models underneath).

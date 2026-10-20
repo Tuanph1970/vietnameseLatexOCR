@@ -104,6 +104,32 @@ python pdf2md.py --image-dpi 300         # sharper figure crops
 python pdf2md.py --device cpu            # no GPU
 ```
 
+### Pruning the input first (`dedupe.py`)
+
+OCR time is the scarce resource, so it pays to drop redundant scans before
+converting. `dedupe.py` reports four kinds of waste and **never deletes**:
+
+| kind | how it is found |
+| --- | --- |
+| handwriting | filename says "viết tay" (any spelling) |
+| byte-identical | md5 of the file |
+| redundant | every page of A also appears in B, by per-page perceptual hash |
+| spacing variant | "cách dòng": the same document re-flowed with blank writing space |
+
+```bash
+python dedupe.py                      # report only
+python dedupe.py --emit-exclude       # print --exclude args for pdf2md.py
+python dedupe.py --move-to ../_dupes  # relocate (reversible), never deletes
+```
+
+The spacing variant is matched on the **filename**, not content, and that is
+deliberate: re-flowing a document changes every page's layout, so no
+image-level comparison can pair the two copies. The other three checks are
+content-based and so survive renaming.
+
+Re-run it after the move — a clean second pass ("0 file(s) prunable") is the
+check that the pruning was complete.
+
 ### Skipping files
 
 `--exclude` drops PDFs whose path matches a glob. Matching is case-insensitive,
