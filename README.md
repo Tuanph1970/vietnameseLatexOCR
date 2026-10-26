@@ -154,9 +154,23 @@ logged and do not stop the batch; the summary lists them at the end.
 ### GPU memory
 
 `--vram-profile` sets the model batch sizes. Marker's own CUDA defaults assume a
-datacenter GPU (recognition batch 256) and will exhaust a 3060, so this script
-defaults to the `12gb` profile. If you still hit `CUDA out of memory`, drop to
-`--vram-profile 6gb`; on a larger card use `24gb` or `default`.
+datacenter GPU (recognition batch 256) and will exhaust a 3060.
+
+The default, `auto`, measures free VRAM at startup and picks a profile that
+fits. This matters when something else is using the card: a 3060 with Ollama
+resident has ~7 GB free, which is not enough for the `12gb` batch sizes, and the
+run would otherwise die partway through with `CUDA out of memory`.
+
+```
+11.3 GiB free -> 12gb      (card to ourselves)
+ 7.2 GiB free -> 6gb       (Ollama is loaded)
+ 3.8 GiB free -> 6gb       + warning that OOM is still likely
+```
+
+Override with `--vram-profile 12gb|6gb|24gb|default` when you want a fixed one.
+Note that `auto` only measures at startup: if another process grabs VRAM
+*during* a run, that book can still OOM. Conversion is resumable, so rerunning
+picks up from the failed file.
 
 Expect very roughly 2–6 s/page for a text-heavy scan on the 3060, depending on
 how many formula and table regions each page contains.

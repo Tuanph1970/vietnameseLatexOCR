@@ -67,6 +67,42 @@ VRAM_PROFILES: dict[str, dict[str, int]] = {
 }
 
 
+# Peak VRAM each profile needs, measured on this workload. Used by "auto" to
+# pick a profile that fits whatever another process has left free.
+PROFILE_NEEDS_GB: dict[str, float] = {"24gb": 16.0, "12gb": 9.0, "6gb": 5.0}
+
+
+def free_vram_gb() -> float | None:
+    """Free VRAM in GiB, or None if there is no usable CUDA device."""
+    try:
+        import torch
+
+        if not torch.cuda.is_available():
+            return None
+        free_bytes, _total = torch.cuda.mem_get_info()
+        return free_bytes / 1024**3
+    except Exception:
+        return None
+
+
+def choose_profile(requested: str) -> tuple[str, str]:
+    """Resolve the --vram-profile value. Returns (profile, reason).
+
+    "auto" reads what is actually free right now, so a run started while
+    another process (Ollama, a notebook) holds VRAM picks batch sizes that
+    fit instead of dying partway through with CUDA OOM.
+    """
+    if requested != "auto":
+        return requested, "requested"
+    free = free_vram_gb()
+    if free is None:
+        return "default", "no CUDA device"
+    for name in ("24gb", "12gb", "6gb"):
+        if free >= PROFILE_NEEDS_GB[name]:
+            return name, f"{free:.1f} GiB free"
+    return "6gb", f"only {free:.1f} GiB free - OOM is likely"
+
+
 @dataclass
 class Totals:
     converted: int = 0
@@ -275,8 +311,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                    help="Only these pages, 0-based, e.g. '0,2,5-10'.")
     p.add_argument("--device", type=str, default=None,
                    help="Torch device, e.g. cuda, cuda:0, cpu. Default: cuda when available.")
-    p.add_argument("--vram-profile", choices=sorted(VRAM_PROFILES), default="12gb",
-                   help="Batch-size preset. '12gb' suits an RTX 3060 12GB.")
+    p.add_argument("--vram-profile", choices=sorted(VRAM_PROFILES) + ["auto"], default="auto",
+                   help="Batch-size preset. 'auto' measures free VRAM at startup and "
+                        "picks one that fits, which matters when another process "
+                        "(Ollama, a notebook) is sharing the card.")
     p.add_argument("--no-force-ocr", action="store_true",
                    help="Trust an existing text layer when the PDF has one (faster on digital PDFs).")
     p.add_argument("--no-images", action="store_true",
@@ -352,6 +390,11 @@ def main(argv: list[str] | None = None) -> int:
     LOG.info("To convert: %d   up-to-date (skipped): %d", len(jobs), totals.skipped)
     if not jobs:
         return 0
+
+    # Resolve before the models load, while the measurement still reflects
+    # what other processes are holding.
+    args.vram_profile, why = choose_profile(args.vram_profile)
+    LOG.info("VRAM profile: %s (%s)", args.vram_profile, why)
 
     LOG.info("Loading OCR models (first run downloads ~2-3 GB of weights)...")
     from marker.logger import configure_logging

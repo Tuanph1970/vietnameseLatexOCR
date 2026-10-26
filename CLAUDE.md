@@ -71,7 +71,11 @@ script adds the batch/recursion layer around it:
   such settings as the non-default truthy case instead.
 - **Batch sizes.** Marker's CUDA defaults (recognition batch 256) assume a
   datacenter GPU and OOM the target 12 GB RTX 3060. `VRAM_PROFILES` overrides
-  them; `12gb` is the default profile.
+  them. The default is `auto`: `choose_profile()` reads free VRAM via
+  `torch.cuda.mem_get_info()` and picks a profile whose measured peak fits,
+  because the card is often shared (Ollama). It is resolved in `main()` *before*
+  the models load, while the reading still reflects other processes.
+  `PROFILE_NEEDS_GB` holds the measured peaks - update it if batch sizes change.
 - Surya recognition is multilingual with **no language parameter** — do not
   reintroduce a `languages` config key, it was removed upstream.
 - **Image format comes from `OUTPUT_IMAGE_FORMAT`**, an env var read by
