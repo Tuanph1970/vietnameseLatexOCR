@@ -219,11 +219,19 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# vietnameseLatexOCR: input scans and generated Markdown are data, not source
+# vietnameseLatexOCR: input scans are data, not source.
 # Source PDFs are never committed, wherever they live.
 *.pdf
 *.PDF
 data_source/*
 !data_source/.gitkeep
-output/
+
+# The converted Markdown is checked in so it can be reviewed and edited, but
+# the figures marker crops alongside it are not: ~10k PNGs, several hundred MB.
+# Image links in the committed .md therefore only resolve against a local
+# output/ tree. Negating output/** needs the !output/**/ line to let git
+# descend into the subdirectories at all.
+output/**
+!output/**/
+!output/**/*.md
 conversion_results/
